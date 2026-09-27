@@ -1,0 +1,87 @@
+import heapq
+from collections import deque
+from datetime import date
+from datetime import timedelta
+
+class Matter:
+	def __init__(self, name, deadline, outcome=None):
+		self.name = name
+		self.deadline = date.fromisoformat(deadline)
+		self.outcome = outcome
+		self.actions = deque()
+
+	def enqueue(self, action):
+		self.actions.append(action)
+
+	def dequeue(self):
+		return self.actions.popleft()
+class Docket:
+	def __init__(self, k):
+		self.k = k
+		self.heap = []
+		self.matters = []
+
+	@classmethod
+	def from_load(cls, filename, k):
+		docket = cls(k)
+
+		matters = {}
+
+		with open(filename) as f:
+			for line in f:
+				name, deadline, outcome, action = line.rstrip("\n").split("\t")
+
+				if name not in matters:
+					matter = Matter(name, deadline, outcome)
+					matters[name] = matter
+					docket.matters.append(matter)
+
+				matters[name].actions.append(action)
+
+		return docket
+
+	def add(self, deadline, action, matter):
+		today = date.today()
+		days = (deadline - today).days
+		delta = timedelta(days=round(days / (len(matter.actions) + 1)))
+		duedate = today + delta
+		entry = (duedate, action, matter)
+		if len(self.heap) < self.k:
+			heapq.heappush(self.heap, entry)
+			return None
+		elif duedate > self.heap[0][0]:
+			return heapq.heapreplace(self.heap, entry)
+	
+	def peel(self):
+		for matter in self.matters:
+			replaced = self.add(
+				matter.deadline, 
+				matter.dequeue(), 
+				matter
+			)
+			if replaced is not None:
+				replaced[2].actions.appendleft(replaced[1])
+	def revert(self):
+		while self.heap:
+			entry = heapq.heappop(self.heap)
+			entry[2].actions.appendleft(entry[1])
+
+	def save(self, filename):
+		self.revert()
+
+		with open(filename, "w") as f:
+
+			for matter in self.matters:
+				for action in matter.actions:
+					f.write(
+						f"{matter.name}\t"
+						f"{matter.deadline.isoformat()}\t"
+						f"{matter.outcome}\t"
+						f"{action}\n"
+					)
+	def today(self):
+		return [
+			(duedate, action, matter.name)
+			for duedate, action, matter 
+			in sorted(self.heap, reverse=True)
+		]
