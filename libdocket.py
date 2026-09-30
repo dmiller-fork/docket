@@ -15,6 +15,7 @@ class Matter:
 
 	def dequeue(self):
 		return self.actions.popleft()
+
 class Docket:
 	def __init__(self, k):
 		self.k = k
@@ -39,35 +40,62 @@ class Docket:
 				matters[name].actions.append(action)
 
 		return docket
-
-	def add(self, deadline, action, matter):
+	
+	def create_matter(self, name, deadline, outcome):
+		matter = Matter(name, deadline, outcome)
+		self.matters.append(matter)
+		#for i, matter in enumerate(self.matters):
+			# print(i, repr(matter), repr(matter.name))
+		return matter
+	
+	def create_action(self, action, matter):
+		self._revert()
+		if matter not in self.matters:
+			raise ValueError("Matter is not in docket")
+		matter.enqueue(action)	
+	
+	def _push(self, deadline, action, matter):
+		## private method to add to heap
+		## first divide up days based on actions
 		today = date.today()
 		days = (deadline - today).days
 		delta = timedelta(days=round(days / (len(matter.actions) + 1)))
 		duedate = today + delta
+		## then create entry 
 		entry = (duedate, action, matter)
 		if len(self.heap) < self.k:
 			heapq.heappush(self.heap, entry)
 			return None
 		elif duedate > self.heap[0][0]:
 			return heapq.heapreplace(self.heap, entry)
-	
 	def peel(self):
 		for matter in self.matters:
-			replaced = self.add(
-				matter.deadline, 
-				matter.dequeue(), 
-				matter
-			)
-			if replaced is not None:
-				replaced[2].actions.appendleft(replaced[1])
-	def revert(self):
+			if not matter.actions:
+				pass
+			else:
+				replaced = self._push(
+					matter.deadline, 
+					matter.dequeue(), 
+					matter
+				)
+				if replaced is not None:
+					replaced[2].actions.appendleft(replaced[1])
+
+	def today(self):
+		actions = [
+			(duedate, action, matter.name)
+			for duedate, action, matter 
+			in sorted(self.heap, reverse=True)
+		]
+		for tup in actions:
+			print(f"{tup[0].isoformat()} {tup[2]}: {tup[1]}")
+	def _revert(self):
 		while self.heap:
 			entry = heapq.heappop(self.heap)
 			entry[2].actions.appendleft(entry[1])
 
 	def save(self, filename):
-		self.revert()
+		self._revert()
 
 		with open(filename, "w") as f:
 
@@ -79,9 +107,3 @@ class Docket:
 						f"{matter.outcome}\t"
 						f"{action}\n"
 					)
-	def today(self):
-		return [
-			(duedate, action, matter.name)
-			for duedate, action, matter 
-			in sorted(self.heap, reverse=True)
-		]

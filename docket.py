@@ -13,7 +13,7 @@ def main():
 	docket = Docket.from_load(SAVEFILE, 5)
 
 	print("Docket REPL")
-	print("Commands: add, peel, today, quit")
+	print("Commands: matter, action, today, quit")
 
 	while True:
 		try:
@@ -23,42 +23,39 @@ def main():
 				break
 
 			elif command == "today":
-				for tup in docket.today():
-					print(f"{tup[0].isoformat()} {tup[2]}: {tup[1]}")
-				   
-
-			elif command == "peel":
 				docket.peel()
-					
+				docket.today()
 
-			elif command == "add":
+			elif command == "matter":
 				line = input(
-					"matter | deadline | outcome | action: "
+					"matter | deadline | outcome\n"
 				).strip()
 
-				matter_name, deadline, outcome, action = (
+				matter_name, deadline, outcome = (
 					part.strip() for part in line.split("|")
 				)
 
-				matter = Matter(
+				matter = docket.create_matter(
 					matter_name,
 					deadline,
 					outcome
 				)
+			elif command == "action":
+				line = input(
+					"matter | action\n"
+				).strip()
 
-				docket.matters.append(matter)
-				docket.add(matter.deadline, action, matter)
-				print("BEFORE SAVE")
-				print("MATTERS:")
+				matter_name, action = (
+					part.strip() for part in line.split("|")
+				)
+
 				for matter in docket.matters:
-					print(matter.name, matter.deadline, matter.outcome, list(matter.actions))
-
-				print("HEAP:")
-				print(docket.heap)
-
-				docket.save(SAVEFILE)
-				print("AFTER SAVE")
-
+					# print(repr(matter.name), repr(matter_name))
+					if matter.name == matter_name:
+						docket.create_action(action, matter)
+						break
+				else:
+					raise Exception("matter not found")	
 			else:
 				print("Unknown command")
 
